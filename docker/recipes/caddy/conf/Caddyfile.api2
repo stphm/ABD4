@@ -1,0 +1,15 @@
+:80 {
+    root * /srv/app/public
+    encode gzip
+    php_fastcgi php_fpm:9000 {
+        root /srv/app/public
+    }
+    file_server
+    log {
+		output stdout
+		format console
+	}
+    header {
+		+Instance-Id "api-2"
+	}
+}

@@ -1,0 +1,195 @@
+version: '3.9'
+
+services:
+    postgresql:
+        container_name: vdm_postgresql
+        image: damian972/vdm_postgresql:0.1
+        build:
+            context: ./docker/recipes/postgresql
+        volumes:
+            - vdm_postgresql_data:/var/lib/postgresql/data
+            # - ./.data/postgresql:/mnt
+        environment:
+            - POSTGRESS_ROOT_PASSWORD=root
+            - POSTGRES_PASSWORD=postgres
+            - POSTGRES_USER=postgres
+            # - POSTGRES_DB=vdm_escape_game
+        networks:
+            webservices:
+                aliases:
+                    - sql.vdm.local
+        # ports:
+        #     - 5432:5432
+
+    proxy:
+        container_name: vdm_proxy
+        image: damian972/vdm_caddy_proxy:0.2
+        build:
+            context: ./docker/recipes/caddy-proxy
+        command: docker-proxy --caddyfile-path /etc/caddy/Caddyfile
+        environment:
+            CADDY_INGRESS_NETWORKS: caddy
+            # - CADDY_DOCKER_NO_SCOPE=true
+            SERVER_NAME: ${SERVER_NAME:-localhost, caddy:80}
+            MERCURE_PUBLISHER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
+            MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET:-!ChangeThisMercureHubJWTSecretKey!}
+            MERCURE_EXTRA_DIRECTIVES: |
+                cors_origins http://api.vdm.local
+
+        volumes:
+            - ./docker/recipes/caddy-proxy/conf/Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./vdm-api:/srv/app:rw
+            - ./.data/caddy-proxy/logs:/logs:rw
+            - ./.data/caddy-proxy/config:/config/caddy:rw
+            - ./.data/caddy-proxy/data:/data/caddy:rw
+            - /var/run/docker.sock:/var/run/docker.sock
+        ports:
+            - 80:80
+            # - 443:443
+        networks:
+            - caddy
+        depends_on:
+            - php_fpm
+
+    api_server1:
+        container_name: vdm_api_server1
+        image: damian972/vdm_caddy:0.1
+        build:
+            context: ./docker/recipes/caddy
+        volumes:
+            - ./docker/recipes/caddy/conf/Caddyfile.api1:/etc/caddy/Caddyfile:ro
+            - ./vdm-api:/srv/app:rw
+            - ./.data/caddy1/config:/config/caddy:rw
+        networks:
+            - caddy
+            - webservices
+        depends_on:
+            - php_fpm
+    api_server2:
+        container_name: vdm_api_server2
+        image: damian972/vdm_caddy:0.1
+        build:
+            context: ./docker/recipes/caddy
+        volumes:
+            - ./docker/recipes/caddy/conf/Caddyfile.api2:/etc/caddy/Caddyfile:ro
+            - ./vdm-api:/srv/app:rw
+            - ./.data/caddy2/config:/config/caddy:rw
+        networks:
+            - caddy
+            - webservices
+        depends_on:
+            - php_fpm
+
+    # web_server1:
+    #     container_name: vdm_web_server1
+    #     image: damian972/vdm_caddy:0.1
+    #     build:
+    #         context: ./docker/recipes/caddy
+    #     volumes:
+    #         - ./docker/recipes/caddy/conf/Caddyfile.web1:/etc/caddy/Caddyfile:ro
+    #         - ./web/build:/srv/app:rw
+    #     networks:
+    #         - caddy
+    #     depends_on:
+    #         - php_fpm
+
+    php_fpm:
+        container_name: vdm_php_fpm
+        image: damian972/vdm_php_fpm:0.1
+        build:
+            context: ./docker/recipes/php-fpm
+        volumes:
+            - ./vdm-api:/srv/app:delegated
+        environment:
+            - APP_ENV=dev
+        networks:
+            - caddy
+            - webservices
+
+    mercure_hub:
+        container_name: vdm_mercure_hub
+        image: dunglas/mercure:v0.10.4
+        volumes:
+            - ./.data/mercure/config:/config
+            - ./.data/mercure/data:/data
+        environment:
+            JWT_KEY: '!ChangeThisMercureHubJWTSecretKey!'
+            ADDR: '0.0.0.0:80'
+            ALLOW_ANONYMOUS: 1
+            CORS_ALLOWED_ORIGINS: 'http://api.vdm.local'
+        networks:
+            - caddy
+            - webservices
+
+    adminer:
+        container_name: vdm_adminer
+        image: wodby/adminer:4
+        environment:
+            ADMINER_DESIGN: pepa-linha
+            ADMINER_DEFAULT_DB_DRIVER: pgsql
+            ADMINER_DEFAULT_DB_HOST: postgresql
+        networks:
+            - caddy
+            - webservices
+
+    maildev:
+        container_name: vdm_maildev
+        image: maildev/maildev
+        command: maildev --hide-extensions STARTTLS
+        networks:
+            caddy:
+            webservices:
+
+    # https://github.com/minio/minio/issues/4769
+    minio1:
+        container_name: vdm_minio1
+        image: bitnami/minio:2022.12.12
+        volumes:
+            - vdm_minio1_data:/data
+        environment:
+            - MINIO_ROOT_USER=minio-root
+            - MINIO_ROOT_PASSWORD=minio-root
+            - MINIO_SERVER_ACCESS_KEY=minio-access
+            - MINIO_SERVER_SECRET_KEY=minio-secret
+            - MINIO_DEFAULT_BUCKETS=uploads,db-backups
+            # - MINIO_FORCE_NEW_KEYS=true # Force MinIO to generate new keys on each restart
+        networks:
+            - webservices
+        ports:
+            - 9000:9000
+            - 9001:9001
+        # on init run : mc admin user add ALIAS ACCESSKEY SECRETKEY
+
+    pg_dump:
+        container_name: vdm_pg_dump
+        image: damian972/vdm_pg_dump:0.1
+        build:
+            context: ./docker/recipes/pg_dump
+            args:
+                - POSTGRES_VERSION=15
+        volumes:
+            - ./.data/pg-backup/dump:/dump
+            # - ./docker/recipes/pg_dump/db_password.txt:/run/secrets/db_password:ro
+        environment:
+            PGUSER: postgres
+            PGPASSWORD: postgres
+            CRON_SCHEDULE: '*/2 * * * *'
+            RETAIN_COUNT: 1 # Keep this number of backups
+            POSTGRES_DB: vdm_escape_game
+            PGHOST: postgresql
+            # POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+        networks:
+            - webservices
+
+networks:
+    caddy:
+        name: caddy
+    webservices:
+        name: webservices
+
+volumes:
+    vdm_postgresql_data:
+        driver: local
+
+    vdm_minio1_data:
+        driver: local

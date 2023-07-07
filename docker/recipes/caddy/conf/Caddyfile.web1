@@ -1,0 +1,12 @@
+:80 {
+    root * /srv/app
+    encode gzip
+    file_server
+    log {
+		output stdout
+		format console
+	}
+    header {
+		+Instance-Id "web-1"
+	}
+}

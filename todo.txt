@@ -1,0 +1,25 @@
+- Page de listing des reservations:
+ - Nombre de personnes
+ - Montant de la réservation
+
+- Page de détail de la réservation:
+    - Nom du client
+    - Nombre de personnes
+    - Montant de la réservation
+    - Date de la réservation
+    - Heure de la réservation
+    - Commentaire du client
+
+- Page de KPI:
+    - Nombre de réservations
+    - Montant total des réservations
+    - Nombre de personnes
+    - Nombre de réservations par jour
+    - Montant total des réservations par jour
+    - Nombre de personnes par jour
+    - Nombre de réservations par semaine
+    - Montant total des réservations par semaine
+    - Nombre de personnes par semaine
+    - Nombre de réservations par mois
+    - Montant total des réservations par mois
+    - Nombre de personnes par mois

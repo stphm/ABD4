@@ -1,0 +1,94 @@
+(anonymous) {
+    header {
+        -Server
+        -Link
+        -X-Powered-By
+    }
+}
+
+http://vdm.local {
+	reverse_proxy * {
+		# Specify backend here
+		to web_server1:80
+
+		lb_policy round_robin
+		lb_try_duration 1s
+		lb_try_interval 250ms
+
+		# health_path     /health # Backend health check path
+		# # health_port     80 # Default same as backend port
+		# health_interval 10s
+		# health_timeout  2s
+		# health_status   200
+	}
+}
+
+http://mercure.vdm.local {
+	reverse_proxy * {
+		to mercure_hub:80
+	}
+}
+
+http://api.vdm.local {
+	reverse_proxy {
+		# Specify backend here
+		to api_server1:80
+		to api_server2:80
+
+		lb_policy round_robin
+		lb_try_duration 1s
+		lb_try_interval 250ms
+
+		health_uri      /server/health # Backend health check path
+		# health_port     80 # Default same as backend port
+		health_interval 10s
+		health_timeout  3s
+		health_status   200
+	}
+
+    header {
+		# Hide "Server: Caddy"
+		-Server
+		
+		# prevent attacks such as Cross Site Scripting (XSS)
+		Content-Security-Policy default-src 'self' *.vdm.local
+		
+		# enable the cross-site scripting (XSS) filter built into modern web browsers
+		X-XSS-Protection 1; mode=block
+
+		# ensures the connection cannot be establish through an insecure HTTP connection 
+		# Strict-Transport-Security max-age=31536000; includeSubDomains; preload
+
+		# clickjacking protection
+		X-Frame-Options DENY
+
+		# provides clickjacking protection. Disable iframes
+		X-Frame-Options: SAMEORIGIN
+
+		# disable clients from sniffing the media type
+		X-Content-Type-Options nosniff
+
+		# keep referrer data off of HTTP connections
+		# Referrer-Policy no-referrer-when-downgrade
+	}
+}
+
+http://mail.vdm.local {
+	reverse_proxy maildev:1080
+}
+
+http://adminer.vdm.local {
+	reverse_proxy adminer:9000
+}
+
+smtp://mail.vdm.local {
+	reverse_proxy maildev:1025
+}
+
+http://s1.vdm.local {
+	reverse_proxy minio1
+}
+
+tcp://sql.vdm.local {
+	reverse_proxy postgresql
+}

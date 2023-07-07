@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.notifjs-container {
+	top: 90px !important;
+}

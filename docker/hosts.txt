@@ -1,0 +1,7 @@
+# ETNA - VDM
+127.0.0.1      	s1.vdm.local
+127.0.0.1      	sql.vdm.local
+127.0.0.1      	adminer.vdm.local
+127.0.0.1      	mercure.vdm.local
+127.0.0.1      	api.vdm.local
+127.0.0.1      	vdm.local
